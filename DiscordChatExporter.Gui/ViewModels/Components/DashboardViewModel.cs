@@ -83,10 +83,52 @@ public partial class DashboardViewModel : ViewModelBase
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(PullChannelsCommand))]
     [NotifyCanExecuteChangedFor(nameof(ExportCommand))]
+    [NotifyPropertyChangedFor(nameof(DisplayedChannels))]
     public partial Guild? SelectedGuild { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayedChannels))]
     public partial IReadOnlyList<ChannelConnection>? AvailableChannels { get; set; }
+
+    // Search query for DM channels
+    private string? _directMessageSearchQuery;
+    public string? DirectMessageSearchQuery
+    {
+        get => _directMessageSearchQuery;
+        set
+        {
+            if (SetProperty(ref _directMessageSearchQuery, value))
+                OnPropertyChanged(nameof(DisplayedChannels));
+        }
+    }
+
+    // Channels actually displayed (may be filtered when viewing DMs)
+    public IReadOnlyList<ChannelConnection>? DisplayedChannels
+    {
+        get
+        {
+            // If not viewing the pseudo-guild for direct messages or nothing loaded yet, return all
+            if (SelectedGuild?.IsDirect != true || AvailableChannels is null)
+                return AvailableChannels;
+
+            var query = DirectMessageSearchQuery?.Trim();
+            if (string.IsNullOrWhiteSpace(query))
+                return AvailableChannels;
+
+            var tokens = query.Split(
+                ' ',
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+            );
+            bool Matches(ChannelConnection c)
+            {
+                var haystack = (
+                    c.Channel.RecipientSearchIndex ?? c.Channel.Name
+                ).ToLowerInvariant();
+                return tokens.All(t => haystack.Contains(t.ToLowerInvariant()));
+            }
+            return AvailableChannels.Where(Matches).ToArray();
+        }
+    }
 
     public ObservableCollection<ChannelConnection> SelectedChannels { get; } = [];
 
@@ -122,6 +164,7 @@ public partial class DashboardViewModel : ViewModelBase
             SelectedGuild = null;
             AvailableChannels = null;
             SelectedChannels.Clear();
+            DirectMessageSearchQuery = null;
 
             _discord = new DiscordClient(token, _settingsService.RateLimitPreference);
             _settingsService.LastToken = token;
@@ -168,6 +211,7 @@ public partial class DashboardViewModel : ViewModelBase
 
             AvailableChannels = null;
             SelectedChannels.Clear();
+            DirectMessageSearchQuery = null;
 
             var channels = new List<Channel>();
 

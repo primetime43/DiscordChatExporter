@@ -141,78 +141,88 @@
 
                 <!--  Channels  -->
                 <Border Grid.Column="1">
-                    <TreeView
-                        x:Name="AvailableChannelsTreeView"
-                        ItemsSource="{Binding AvailableChannels}"
-                        SelectedItems="{Binding SelectedChannels}"
-                        SelectionChanged="AvailableChannelsTreeView_OnSelectionChanged"
-                        SelectionMode="Multiple"
-                        TextSearch.Text="Name">
-                        <TreeView.Styles>
-                            <Style Selector="TreeView">
-                                <Style Selector="^ TreeViewItem">
-                                    <Setter Property="Padding" Value="0" />
-                                    <Setter Property="Cursor" Value="Hand" />
+                    <DockPanel>
+                        <!-- DM user search -->
+                        <TextBox
+                            DockPanel.Dock="Top"
+                            Margin="8,8,8,0"
+                            Watermark="Search users in DMs"
+                            IsVisible="{Binding SelectedGuild.IsDirect}"
+                            Text="{Binding DirectMessageSearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                            Theme="{DynamicResource SoloTextBox}" />
+                        <TreeView
+                            x:Name="AvailableChannelsTreeView"
+                            ItemsSource="{Binding DisplayedChannels}"
+                            SelectedItems="{Binding SelectedChannels}"
+                            SelectionChanged="AvailableChannelsTreeView_OnSelectionChanged"
+                            SelectionMode="Multiple"
+                            TextSearch.Text="Name">
+                            <TreeView.Styles>
+                                <Style Selector="TreeView">
+                                    <Style Selector="^ TreeViewItem">
+                                        <Setter Property="Padding" Value="0" />
+                                        <Setter Property="Cursor" Value="Hand" />
+                                    </Style>
                                 </Style>
-                            </Style>
-                        </TreeView.Styles>
-                        <TreeView.ItemTemplate>
-                            <TreeDataTemplate ItemsSource="{Binding Children}">
-                                <Grid
-                                    Background="Transparent"
-                                    Classes.category="{Binding Channel.IsCategory}"
-                                    ColumnDefinitions="Auto,*,Auto">
-                                    <Grid.Styles>
-                                        <Style Selector="Grid">
-                                            <Style Selector="^:not(.category)">
-                                                <Setter Property="ToolTip.Tip">
-                                                    <Template>
-                                                        <TextBlock>
-                                                            <Run Text="Last message sent:" />
-                                                            <Run FontWeight="SemiBold" Text="{Binding Channel.LastMessageId, Converter={x:Static converters:SnowflakeToTimestampStringConverter.Instance}, TargetNullValue=never, Mode=OneWay}" />
-                                                        </TextBlock>
-                                                    </Template>
-                                                </Setter>
-                                            </Style>
-                                        </Style>
-                                    </Grid.Styles>
-
-                                    <!--  Channel icon  -->
-                                    <materialIcons:MaterialIcon
-                                        Grid.Column="0"
-                                        Margin="0,0,4,0"
-                                        Classes.voice="{Binding Channel.IsVoice}"
-                                        IsVisible="{Binding !Channel.IsCategory}">
-                                        <materialIcons:MaterialIcon.Styles>
-                                            <Style Selector="materialIcons|MaterialIcon">
-                                                <Setter Property="Kind" Value="Pound" />
-
-                                                <Style Selector="^.voice">
-                                                    <Setter Property="Kind" Value="VolumeHigh" />
+                            </TreeView.Styles>
+                            <TreeView.ItemTemplate>
+                                <TreeDataTemplate ItemsSource="{Binding Children}">
+                                    <Grid
+                                        Background="Transparent"
+                                        Classes.category="{Binding Channel.IsCategory}"
+                                        ColumnDefinitions="Auto,*,Auto">
+                                        <Grid.Styles>
+                                            <Style Selector="Grid">
+                                                <Style Selector="^:not(.category)">
+                                                    <Setter Property="ToolTip.Tip">
+                                                        <Template>
+                                                            <TextBlock>
+                                                                <Run Text="Last message sent:" />
+                                                                <Run FontWeight="SemiBold" Text="{Binding Channel.LastMessageId, Converter={x:Static converters:SnowflakeToTimestampStringConverter.Instance}, TargetNullValue=never, Mode=OneWay}" />
+                                                            </TextBlock>
+                                                        </Template>
+                                                    </Setter>
                                                 </Style>
                                             </Style>
-                                        </materialIcons:MaterialIcon.Styles>
-                                    </materialIcons:MaterialIcon>
+                                        </Grid.Styles>
 
-                                    <!--  Channel name  -->
-                                    <TextBlock
-                                        Grid.Column="1"
-                                        Margin="0,12"
-                                        FontSize="14"
-                                        Text="{Binding Channel.Name, Mode=OneWay}" />
+                                        <!--  Channel icon  -->
+                                        <materialIcons:MaterialIcon
+                                            Grid.Column="0"
+                                            Margin="0,0,4,0"
+                                            Classes.voice="{Binding Channel.IsVoice}"
+                                            IsVisible="{Binding !Channel.IsCategory}">
+                                            <materialIcons:MaterialIcon.Styles>
+                                                <Style Selector="materialIcons|MaterialIcon">
+                                                    <Setter Property="Kind" Value="Pound" />
 
-                                    <!--  Checkmark  -->
-                                    <materialIcons:MaterialIcon
-                                        Grid.Column="2"
-                                        Width="24"
-                                        Height="24"
-                                        Margin="16,0"
-                                        IsVisible="{Binding $parent[TreeViewItem].IsSelected}"
-                                        Kind="Check" />
-                                </Grid>
-                            </TreeDataTemplate>
-                        </TreeView.ItemTemplate>
-                    </TreeView>
+                                                    <Style Selector="^.voice">
+                                                        <Setter Property="Kind" Value="VolumeHigh" />
+                                                    </Style>
+                                                </Style>
+                                            </materialIcons:MaterialIcon.Styles>
+                                        </materialIcons:MaterialIcon>
+
+                                        <!--  Channel name  -->
+                                        <TextBlock
+                                            Grid.Column="1"
+                                            Margin="0,12"
+                                            FontSize="14"
+                                            Text="{Binding Channel.Name, Mode=OneWay}" />
+
+                                        <!--  Checkmark  -->
+                                        <materialIcons:MaterialIcon
+                                            Grid.Column="2"
+                                            Width="24"
+                                            Height="24"
+                                            Margin="16,0"
+                                            IsVisible="{Binding $parent[TreeViewItem].IsSelected}"
+                                            Kind="Check" />
+                                    </Grid>
+                                </TreeDataTemplate>
+                            </TreeView.ItemTemplate>
+                        </TreeView>
+                    </DockPanel>
                 </Border>
             </Grid>
 

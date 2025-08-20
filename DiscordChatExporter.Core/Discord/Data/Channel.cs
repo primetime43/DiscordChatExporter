@@ -39,6 +39,9 @@ public partial record Channel(
 
     public bool IsEmpty { get; } = LastMessageId is null;
 
+    // Lower-cased concatenated list of recipient usernames/display names/full names for DM search
+    public string? RecipientSearchIndex { get; init; }
+
     public IEnumerable<Channel> GetParents()
     {
         var current = Parent;
@@ -71,16 +74,18 @@ public partial record Channel
                 ?.GetNonWhiteSpaceStringOrNull()
                 ?.Pipe(Snowflake.Parse) ?? Guild.DirectMessages.Id;
 
+        // Recipients (only present for DM/group DM)
+        var recipients = json.GetPropertyOrNull("recipients")
+            ?.EnumerateArrayOrNull()
+            ?.Select(User.Parse)
+            .OrderBy(u => u.Id)
+            .ToArray();
+
         var name =
             // Guild channel
             json.GetPropertyOrNull("name")?.GetNonWhiteSpaceStringOrNull()
             // DM channel
-            ?? json.GetPropertyOrNull("recipients")
-                ?.EnumerateArrayOrNull()
-                ?.Select(User.Parse)
-                .OrderBy(u => u.Id)
-                .Select(u => u.DisplayName)
-                .Pipe(s => string.Join(", ", s))
+            ?? recipients?.Select(u => u.DisplayName).Pipe(s => string.Join(", ", s))
             // Fallback
             ?? id.ToString();
 
@@ -102,7 +107,7 @@ public partial record Channel
             ?.GetNonWhiteSpaceStringOrNull()
             ?.Pipe(Snowflake.Parse);
 
-        return new Channel(
+        var channel = new Channel(
             id,
             kind,
             guildId,
@@ -113,6 +118,20 @@ public partial record Channel
             topic,
             isArchived,
             lastMessageId
-        );
+        )
+        {
+            RecipientSearchIndex = recipients is null
+                ? null
+                : string.Join(
+                        ' ',
+                        recipients
+                            .SelectMany(u => new[] { u.Name, u.DisplayName, u.FullName })
+                            .Where(v => !string.IsNullOrWhiteSpace(v))
+                            .Distinct()
+                    )
+                    .ToLowerInvariant(),
+        };
+
+        return channel;
     }
 }
