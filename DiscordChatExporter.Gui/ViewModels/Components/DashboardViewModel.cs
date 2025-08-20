@@ -80,14 +80,19 @@ public partial class DashboardViewModel : ViewModelBase
     [ObservableProperty]
     public partial IReadOnlyList<Guild>? AvailableGuilds { get; set; }
 
+    public bool ShouldShowDirectMessageSearch =>
+        SelectedGuild?.IsDirect == true && AvailableChannels is { Count: > 0 };
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(PullChannelsCommand))]
     [NotifyCanExecuteChangedFor(nameof(ExportCommand))]
     [NotifyPropertyChangedFor(nameof(DisplayedChannels))]
+    [NotifyPropertyChangedFor(nameof(ShouldShowDirectMessageSearch))]
     public partial Guild? SelectedGuild { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DisplayedChannels))]
+    [NotifyPropertyChangedFor(nameof(ShouldShowDirectMessageSearch))]
     public partial IReadOnlyList<ChannelConnection>? AvailableChannels { get; set; }
 
     // Search query for DM channels

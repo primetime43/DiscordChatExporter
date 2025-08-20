@@ -147,7 +147,7 @@
                             DockPanel.Dock="Top"
                             Margin="8,8,8,0"
                             Watermark="Search users in DMs"
-                            IsVisible="{Binding SelectedGuild.IsDirect}"
+                            IsVisible="{Binding ShouldShowDirectMessageSearch}"
                             Text="{Binding DirectMessageSearchQuery, UpdateSourceTrigger=PropertyChanged}"
                             Theme="{DynamicResource SoloTextBox}" />
                         <TreeView
