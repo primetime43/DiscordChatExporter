@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -32,6 +33,9 @@ public partial class DashboardViewModel : ViewModelBase
     private readonly AutoResetProgressMuxer _progressMuxer;
 
     private DiscordClient? _discord;
+
+    // Cache of raw channels for rebuilding the tree dynamically (e.g. when adding DM channels manually)
+    private readonly List<Channel> _channelCache = new();
 
     public DashboardViewModel(
         ViewModelManager viewModelManager,
@@ -170,6 +174,7 @@ public partial class DashboardViewModel : ViewModelBase
             AvailableChannels = null;
             SelectedChannels.Clear();
             DirectMessageSearchQuery = null;
+            _channelCache.Clear();
 
             _discord = new DiscordClient(token, _settingsService.RateLimitPreference);
             _settingsService.LastToken = token;
@@ -217,6 +222,7 @@ public partial class DashboardViewModel : ViewModelBase
             AvailableChannels = null;
             SelectedChannels.Clear();
             DirectMessageSearchQuery = null;
+            _channelCache.Clear();
 
             var channels = new List<Channel>();
 
@@ -238,16 +244,8 @@ public partial class DashboardViewModel : ViewModelBase
                 }
             }
 
-            // Build a hierarchy of channels
-            var channelTree = ChannelConnection.BuildTree(
-                channels
-                    .OrderByDescending(c => c.IsDirect ? c.LastMessageId : null)
-                    .ThenBy(c => c.Position)
-                    .ToArray()
-            );
-
-            AvailableChannels = channelTree;
-            SelectedChannels.Clear();
+            _channelCache.AddRange(channels);
+            RebuildChannelTree();
         }
         catch (DiscordChatExporterException ex) when (!ex.IsFatal)
         {
@@ -267,6 +265,20 @@ public partial class DashboardViewModel : ViewModelBase
             progress.ReportCompletion();
             IsBusy = false;
         }
+    }
+
+    private void RebuildChannelTree()
+    {
+        // Ensure unique channels by ID (avoid duplicates when manually adding DMs already present)
+        var distinctChannels = _channelCache.GroupBy(c => c.Id).Select(g => g.First()).ToArray();
+
+        var channelTree = ChannelConnection.BuildTree(
+            distinctChannels
+                .OrderByDescending(c => c.IsDirect ? c.LastMessageId : null)
+                .ThenBy(c => c.Position)
+                .ToArray()
+        );
+        AvailableChannels = channelTree;
     }
 
     private bool CanExport() =>
@@ -347,7 +359,6 @@ public partial class DashboardViewModel : ViewModelBase
                 }
             );
 
-            // Notify of the overall completion
             if (successfulExportCount > 0)
             {
                 _snackbarManager.Notify(
@@ -367,6 +378,72 @@ public partial class DashboardViewModel : ViewModelBase
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    private bool TryParseChannelId(string input, out Snowflake id)
+    {
+        id = default;
+        if (string.IsNullOrWhiteSpace(input))
+            return false;
+
+        var trimmed = input.Trim();
+
+        // Extract numeric segment from a possible URL (e.g. https://discord.com/channels/@me/123456789)
+        var match = Regex.Match(
+            trimmed,
+            @"(?:(?:https?://)?(?:discord(?:app)?\.com)/channels/@me/)?(\d{15,25})$"
+        );
+        var candidate = match.Success ? match.Groups[1].Value : trimmed;
+
+        var parsed = Snowflake.TryParse(candidate);
+        if (parsed is null)
+            return false;
+
+        id = parsed.Value;
+        return true;
+    }
+
+    [RelayCommand]
+    private async Task AddDirectMessageChannelAsync()
+    {
+        if (_discord is null || SelectedGuild?.IsDirect != true)
+            return;
+
+        var input = DirectMessageSearchQuery;
+        if (!TryParseChannelId(input ?? string.Empty, out var channelId))
+        {
+            _snackbarManager.Notify("Enter a valid DM channel ID or URL");
+            return;
+        }
+
+        if (_channelCache.Any(c => c.Id == channelId))
+        {
+            _snackbarManager.Notify("DM channel already loaded");
+            return;
+        }
+
+        try
+        {
+            var channel = await _discord.GetChannelAsync(channelId);
+            if (!channel.IsDirect)
+            {
+                _snackbarManager.Notify("Channel is not a direct message");
+                return;
+            }
+
+            _channelCache.Add(channel);
+            RebuildChannelTree();
+            _snackbarManager.Notify("DM channel added");
+        }
+        catch (DiscordChatExporterException ex) when (!ex.IsFatal)
+        {
+            _snackbarManager.Notify(ex.Message.TrimEnd('.'));
+        }
+        catch (Exception)
+        {
+            _snackbarManager.Notify("Failed to add DM channel");
+            // Non-fatal, swallow
         }
     }
 

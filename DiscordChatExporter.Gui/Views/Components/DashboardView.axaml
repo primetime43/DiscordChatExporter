@@ -142,14 +142,27 @@
                 <!--  Channels  -->
                 <Border Grid.Column="1">
                     <DockPanel>
-                        <!-- DM user search -->
-                        <TextBox
-                            DockPanel.Dock="Top"
-                            Margin="8,8,8,0"
-                            Watermark="Search users in DMs"
-                            IsVisible="{Binding ShouldShowDirectMessageSearch}"
-                            Text="{Binding DirectMessageSearchQuery, UpdateSourceTrigger=PropertyChanged}"
-                            Theme="{DynamicResource SoloTextBox}" />
+                        <!-- DM search & add -->
+                        <Grid DockPanel.Dock="Top" Margin="8,8,8,0" IsVisible="{Binding ShouldShowDirectMessageSearch}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox
+                                Grid.Column="0"
+                                Watermark="Search users in DMs or enter DM channel ID/URL"
+                                Text="{Binding DirectMessageSearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                                Theme="{DynamicResource SoloTextBox}" />
+                            <Button
+                                Grid.Column="1"
+                                Margin="8,0,0,0"
+                                Padding="8,4"
+                                Command="{Binding AddDirectMessageChannelCommand}"
+                                ToolTip.Tip="Add DM channel by ID/URL"
+                                Theme="{DynamicResource MaterialFlatButton}">
+                                <materialIcons:MaterialIcon Width="20" Height="20" Kind="Plus" />
+                            </Button>
+                        </Grid>
                         <TreeView
                             x:Name="AvailableChannelsTreeView"
                             ItemsSource="{Binding DisplayedChannels}"
