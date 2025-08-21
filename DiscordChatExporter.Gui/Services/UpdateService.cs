@@ -9,11 +9,14 @@ namespace DiscordChatExporter.Gui.Services;
 
 public class UpdateService(SettingsService settingsService) : IDisposable
 {
+    private const string UpdateRepoOwner = "primetime43";
+    private const string UpdateRepoName = "DiscordChatExporter";
+
     private readonly IUpdateManager? _updateManager = OperatingSystem.IsWindows()
         ? new UpdateManager(
             new GithubPackageResolver(
-                "Tyrrrz",
-                "DiscordChatExporter",
+                UpdateRepoOwner,
+                UpdateRepoName,
                 // Examples:
                 // DiscordChatExporter.win-arm64.zip
                 // DiscordChatExporter.win-x64.zip
