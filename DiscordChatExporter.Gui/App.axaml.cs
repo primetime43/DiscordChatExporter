@@ -47,6 +47,7 @@ public class App : Application, IDisposable
         services.AddTransient<MainViewModel>();
         services.AddTransient<DashboardViewModel>();
         services.AddTransient<ExportSetupViewModel>();
+        services.AddTransient<DeleteSetupViewModel>();
         services.AddTransient<MessageBoxViewModel>();
         services.AddTransient<SettingsViewModel>();
 

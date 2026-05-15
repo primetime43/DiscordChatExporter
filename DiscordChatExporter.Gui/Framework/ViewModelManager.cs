@@ -28,6 +28,19 @@ public class ViewModelManager(IServiceProvider services)
         return viewModel;
     }
 
+    public DeleteSetupViewModel GetDeleteSetupViewModel(
+        Guild guild,
+        IReadOnlyList<Channel> channels
+    )
+    {
+        var viewModel = services.GetRequiredService<DeleteSetupViewModel>();
+
+        viewModel.Guild = guild;
+        viewModel.Channels = channels;
+
+        return viewModel;
+    }
+
     public MessageBoxViewModel GetMessageBoxViewModel(
         string title,
         string message,
