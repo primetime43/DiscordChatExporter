@@ -61,7 +61,11 @@ public partial class DashboardViewModel : ViewModelBase
         _eventRoot.Add(
             SelectedChannels.WatchProperty(
                 o => o.Count,
-                () => ExportCommand.NotifyCanExecuteChanged()
+                () =>
+                {
+                    ExportCommand.NotifyCanExecuteChanged();
+                    DeleteMessagesCommand.NotifyCanExecuteChanged();
+                }
             )
         );
     }
@@ -71,6 +75,7 @@ public partial class DashboardViewModel : ViewModelBase
     [NotifyCanExecuteChangedFor(nameof(PullGuildsCommand))]
     [NotifyCanExecuteChangedFor(nameof(PullChannelsCommand))]
     [NotifyCanExecuteChangedFor(nameof(ExportCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DeleteMessagesCommand))]
     public partial bool IsBusy { get; set; }
 
     public ProgressContainer<Percentage> Progress { get; } = new();
@@ -377,6 +382,187 @@ public partial class DashboardViewModel : ViewModelBase
         }
         finally
         {
+            IsBusy = false;
+        }
+    }
+
+    private bool CanDeleteMessages() =>
+        !IsBusy && _discord is not null && SelectedGuild is not null && SelectedChannels.Any();
+
+    [RelayCommand(CanExecute = nameof(CanDeleteMessages))]
+    private async Task DeleteMessagesAsync()
+    {
+        _snackbarManager.Notify("DELETE BUTTON CLICKED - Starting deletion process...");
+        IsBusy = true;
+
+        try
+        {
+            if (_discord is null || SelectedGuild is null || !SelectedChannels.Any())
+            {
+                _snackbarManager.Notify("ERROR: Discord client, guild, or channels not available");
+                return;
+            }
+
+            _snackbarManager.Notify("Fetching current user information...");
+
+            // Get current user to filter messages
+            var currentUser = await _discord.GetCurrentUserAsync();
+            _snackbarManager.Notify(
+                $"Authenticated as: {currentUser.FullName} (ID: {currentUser.Id})"
+            );
+
+            var dialog = _viewModelManager.CreateDeleteSetupViewModel(
+                SelectedGuild,
+                SelectedChannels.Select(c => c.Channel).ToArray()
+            );
+
+            _snackbarManager.Notify("Showing delete confirmation dialog...");
+            var dialogResult = await _dialogManager.ShowDialogAsync(dialog);
+
+            if (dialogResult != true)
+            {
+                _snackbarManager.Notify("Deletion cancelled by user");
+                return;
+            }
+
+            _snackbarManager.Notify(
+                $"Dialog confirmed. Processing {dialog.Channels!.Count} channel(s)..."
+            );
+
+            var channelProgressPairs = dialog
+                .Channels!.Select(c => new { Channel = c, Progress = _progressMuxer.CreateInput() })
+                .ToArray();
+
+            var totalDeletedCount = 0;
+            var totalFailedCount = 0;
+
+            _snackbarManager.Notify(
+                $"STARTING parallel processing for {channelProgressPairs.Length} channel(s)"
+            );
+
+            await Parallel.ForEachAsync(
+                channelProgressPairs,
+                new ParallelOptions
+                {
+                    MaxDegreeOfParallelism = Math.Max(1, _settingsService.ParallelLimit),
+                },
+                async (pair, cancellationToken) =>
+                {
+                    var channel = pair.Channel;
+                    var progress = pair.Progress;
+
+                    _snackbarManager.Notify($"ENTERING LOOP for channel: {channel.Name}");
+
+                    try
+                    {
+                        _snackbarManager.Notify($"Counting your messages in: {channel.Name}");
+
+                        // First pass: count user's messages
+                        var userMessageIds = new List<Snowflake>();
+                        await foreach (
+                            var message in _discord.GetMessagesAsync(
+                                channel.Id,
+                                dialog.After?.Pipe(Snowflake.FromDate),
+                                dialog.Before?.Pipe(Snowflake.FromDate),
+                                progress,
+                                cancellationToken
+                            )
+                        )
+                        {
+                            if (message.Author.Id == currentUser.Id)
+                            {
+                                userMessageIds.Add(message.Id);
+                            }
+                        }
+
+                        var totalUserMessages = userMessageIds.Count;
+                        _snackbarManager.Notify(
+                            $"Found {totalUserMessages} of your messages in {channel.Name}"
+                        );
+
+                        if (totalUserMessages == 0)
+                        {
+                            _snackbarManager.Notify($"No messages to delete in {channel.Name}");
+                            return;
+                        }
+
+                        // Second pass: delete messages
+                        var successCount = 0;
+                        var failedCount = 0;
+
+                        foreach (var messageId in userMessageIds)
+                        {
+                            try
+                            {
+                                var deleted = await _discord.DeleteMessageAsync(
+                                    channel.Id,
+                                    messageId,
+                                    cancellationToken
+                                );
+
+                                if (deleted)
+                                {
+                                    Interlocked.Increment(ref successCount);
+                                    _snackbarManager.Notify(
+                                        $"✓ Deleted {successCount} / {totalUserMessages} messages in {channel.Name}"
+                                    );
+                                }
+                                else
+                                {
+                                    Interlocked.Increment(ref failedCount);
+                                }
+
+                                // Discord's rate limit headers are handled automatically by DeleteResponseAsync
+                            }
+                            catch (Exception ex)
+                            {
+                                Interlocked.Increment(ref failedCount);
+                                _snackbarManager.Notify(
+                                    $"✗ ERROR: {ex.Message} (Deleted: {successCount}/{totalUserMessages})"
+                                );
+                            }
+                        }
+
+                        Interlocked.Add(ref totalDeletedCount, successCount);
+                        Interlocked.Add(ref totalFailedCount, failedCount);
+
+                        // Final update for this channel
+                        _snackbarManager.Notify(
+                            $"✅ Completed {channel.Name}: {successCount} / {totalUserMessages} deleted successfully"
+                        );
+                    }
+                    catch (DiscordChatExporterException ex) when (!ex.IsFatal)
+                    {
+                        _snackbarManager.Notify(ex.Message.TrimEnd('.'));
+                    }
+                    finally
+                    {
+                        progress.ReportCompletion();
+                    }
+                }
+            );
+
+            _snackbarManager.Notify("PARALLEL PROCESSING COMPLETED");
+
+            // Final summary
+            _snackbarManager.Notify(
+                $"🎉 All channels complete! Total deleted: {totalDeletedCount}, Failed: {totalFailedCount}"
+            );
+        }
+        catch (Exception ex)
+        {
+            _snackbarManager.Notify($"TOP LEVEL EXCEPTION: {ex.Message}");
+
+            var dialog = _viewModelManager.CreateMessageBoxViewModel(
+                "Error deleting messages",
+                ex.ToString()
+            );
+
+            await _dialogManager.ShowDialogAsync(dialog);
+        }
+        finally
+        {
+            _snackbarManager.Notify("FINALLY BLOCK - Setting IsBusy = false");
             IsBusy = false;
         }
     }

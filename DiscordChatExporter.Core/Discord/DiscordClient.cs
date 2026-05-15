@@ -203,6 +203,12 @@ public class DiscordClient(
         return response?.Pipe(User.Parse);
     }
 
+    public async ValueTask<User> GetCurrentUserAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await GetJsonResponseAsync("users/@me", cancellationToken);
+        return User.Parse(response);
+    }
+
     public async IAsyncEnumerable<Guild> GetUserGuildsAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken = default
     )
@@ -694,5 +700,97 @@ public class DiscordClient(
             if (count <= 0)
                 yield break;
         }
+    }
+
+    private async ValueTask<HttpResponseMessage> DeleteResponseAsync(
+        string url,
+        TokenKind tokenKind,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return await Http.ResponseResiliencePipeline.ExecuteAsync(
+            async innerCancellationToken =>
+            {
+                using var request = new HttpRequestMessage(
+                    HttpMethod.Delete,
+                    new Uri(_baseUri, url)
+                );
+
+                request.Headers.TryAddWithoutValidation(
+                    "Authorization",
+                    tokenKind == TokenKind.Bot ? $"Bot {token}" : token
+                );
+
+                var response = await Http.Client.SendAsync(
+                    request,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    innerCancellationToken
+                );
+
+                if (rateLimitPreference.IsRespectedFor(tokenKind))
+                {
+                    var remainingRequestCount = response
+                        .Headers.TryGetValue("X-RateLimit-Remaining")
+                        ?.Pipe(s => int.Parse(s, CultureInfo.InvariantCulture));
+
+                    var resetAfterDelay = response
+                        .Headers.TryGetValue("X-RateLimit-Reset-After")
+                        ?.Pipe(s => double.Parse(s, CultureInfo.InvariantCulture))
+                        .Pipe(TimeSpan.FromSeconds);
+
+                    if (remainingRequestCount <= 0 && resetAfterDelay is not null)
+                    {
+                        var delay = (resetAfterDelay.Value + TimeSpan.FromSeconds(1)).Clamp(
+                            TimeSpan.Zero,
+                            TimeSpan.FromSeconds(60)
+                        );
+
+                        await Task.Delay(delay, innerCancellationToken);
+                    }
+                }
+
+                return response;
+            },
+            cancellationToken
+        );
+    }
+
+    private async ValueTask<HttpResponseMessage> DeleteResponseAsync(
+        string url,
+        CancellationToken cancellationToken = default
+    ) =>
+        await DeleteResponseAsync(
+            url,
+            await ResolveTokenKindAsync(cancellationToken),
+            cancellationToken
+        );
+
+    public async ValueTask<bool> DeleteMessageAsync(
+        Snowflake channelId,
+        Snowflake messageId,
+        CancellationToken cancellationToken = default
+    )
+    {
+        using var response = await DeleteResponseAsync(
+            $"channels/{channelId}/messages/{messageId}",
+            cancellationToken
+        );
+
+        // 204 No Content = successfully deleted
+        if (response.StatusCode == HttpStatusCode.NoContent)
+            return true;
+
+        // 403 Forbidden = not authorized to delete (e.g., someone else's message)
+        // 404 Not Found = message already deleted or doesn't exist
+        if (
+            response.StatusCode == HttpStatusCode.Forbidden
+            || response.StatusCode == HttpStatusCode.NotFound
+        )
+            return false;
+
+        // For other errors, throw an exception
+        throw new DiscordChatExporterException(
+            $"Failed to delete message #{messageId} in channel #{channelId}: {response.StatusCode}"
+        );
     }
 }

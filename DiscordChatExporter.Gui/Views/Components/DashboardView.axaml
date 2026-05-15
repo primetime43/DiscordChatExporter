@@ -411,24 +411,47 @@
                 </ScrollViewer>
             </Panel>
 
-            <!--  Export button  -->
-            <Button
-                Width="56"
-                Height="56"
-                Margin="32,24"
-                Padding="0"
+            <!--  Action buttons  -->
+            <StackPanel
                 HorizontalAlignment="Right"
                 VerticalAlignment="Bottom"
-                Background="{DynamicResource MaterialSecondaryMidBrush}"
-                Command="{Binding ExportCommand}"
-                Foreground="{DynamicResource MaterialSecondaryMidForegroundBrush}"
-                IsVisible="{Binding $self.IsEffectivelyEnabled}"
-                Theme="{DynamicResource MaterialIconButton}">
-                <materialIcons:MaterialIcon
-                    Width="32"
-                    Height="32"
-                    Kind="Download" />
-            </Button>
+                Margin="32,24"
+                Orientation="Horizontal"
+                Spacing="16">
+                <!--  Delete button  -->
+                <Button
+                    Width="56"
+                    Height="56"
+                    Padding="0"
+                    Background="#FFE74C3C"
+                    Command="{Binding DeleteMessagesCommand}"
+                    Foreground="White"
+                    IsVisible="{Binding $self.IsEffectivelyEnabled}"
+                    Theme="{DynamicResource MaterialIconButton}"
+                    ToolTip.Tip="Delete messages from selected channels">
+                    <materialIcons:MaterialIcon
+                        Width="32"
+                        Height="32"
+                        Kind="Delete" />
+                </Button>
+
+                <!--  Export button  -->
+                <Button
+                    Width="56"
+                    Height="56"
+                    Padding="0"
+                    Background="{DynamicResource MaterialSecondaryMidBrush}"
+                    Command="{Binding ExportCommand}"
+                    Foreground="{DynamicResource MaterialSecondaryMidForegroundBrush}"
+                    IsVisible="{Binding $self.IsEffectivelyEnabled}"
+                    Theme="{DynamicResource MaterialIconButton}"
+                    ToolTip.Tip="Export selected channels">
+                    <materialIcons:MaterialIcon
+                        Width="32"
+                        Height="32"
+                        Kind="Download" />
+                </Button>
+            </StackPanel>
         </Panel>
     </DockPanel>
 </UserControl>

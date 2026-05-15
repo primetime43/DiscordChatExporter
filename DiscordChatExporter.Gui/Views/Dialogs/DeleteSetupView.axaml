@@ -1,0 +1,180 @@
+<UserControl
+    x:Class="DiscordChatExporter.Gui.Views.Dialogs.DeleteSetupView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:asyncImageLoader="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
+    xmlns:converters="clr-namespace:DiscordChatExporter.Gui.Converters"
+    xmlns:dialogs="clr-namespace:DiscordChatExporter.Gui.ViewModels.Dialogs"
+    xmlns:materialAssists="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
+    xmlns:utils="clr-namespace:DiscordChatExporter.Gui.Utils"
+    x:Name="UserControl"
+    Width="380"
+    x:DataType="dialogs:DeleteSetupViewModel"
+    Loaded="UserControl_OnLoaded">
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!--  Guild/channel info  -->
+        <Grid
+            Grid.Row="0"
+            Margin="16"
+            ColumnDefinitions="Auto,*">
+            <!--  Guild icon  -->
+            <Ellipse
+                Grid.Column="0"
+                Width="32"
+                Height="32">
+                <Ellipse.Fill>
+                    <ImageBrush asyncImageLoader:ImageBrushLoader.Source="{Binding Guild.IconUrl}" />
+                </Ellipse.Fill>
+            </Ellipse>
+
+            <!--  Channel count (for multiple channels)  -->
+            <TextBlock
+                Grid.Column="1"
+                Margin="8,0,0,0"
+                VerticalAlignment="Center"
+                FontSize="19"
+                FontWeight="Light"
+                IsVisible="{Binding !IsSingleChannel}"
+                TextTrimming="CharacterEllipsis">
+                <Run Text="{Binding Channels.Count, FallbackValue=0, Mode=OneWay}" />
+                <Run Text="channels selected" />
+            </TextBlock>
+
+            <!--  Category and channel name (for single channel)  -->
+            <TextBlock
+                Grid.Column="1"
+                Margin="8,0,0,0"
+                VerticalAlignment="Center"
+                FontSize="19"
+                FontWeight="Light"
+                IsVisible="{Binding IsSingleChannel}"
+                TextTrimming="CharacterEllipsis"
+                ToolTip.Tip="{Binding Channels[0], Converter={x:Static converters:ChannelToHierarchicalNameStringConverter.Instance}}">
+                <TextBlock IsVisible="{Binding !!Channels[0].Parent}">
+                    <Run Text="{Binding Channels[0].Parent.Name, Mode=OneWay}" />
+                    <Run Text="/" />
+                </TextBlock>
+                <Run FontWeight="SemiBold" Text="{Binding Channels[0].Name, Mode=OneWay}" />
+            </TextBlock>
+        </Grid>
+
+        <Border
+            Grid.Row="1"
+            Padding="0,8"
+            BorderBrush="{DynamicResource MaterialDividerBrush}"
+            BorderThickness="0,1">
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <StackPanel Orientation="Vertical">
+                    <!--  Warning message  -->
+                    <Border
+                        Margin="16,8"
+                        Padding="12"
+                        Background="#33FFA500"
+                        BorderBrush="#FFFFA500"
+                        BorderThickness="2"
+                        CornerRadius="4">
+                        <TextBlock
+                            FontSize="13"
+                            FontWeight="SemiBold"
+                            Foreground="#FFFFA500"
+                            TextWrapping="Wrap">
+                            <Run Text="⚠ WARNING: This will permanently delete messages from the channel." />
+                            <LineBreak />
+                            <Run FontWeight="Normal" Text="You can only delete your own messages. Messages from other users will be skipped." />
+                        </TextBlock>
+                    </Border>
+
+                    <!--  Date limits  -->
+                    <Grid ColumnDefinitions="*,*" RowDefinitions="*,*">
+                        <DatePicker
+                            Grid.Row="0"
+                            Grid.Column="0"
+                            Margin="16,8,8,8"
+                            materialAssists:TextFieldAssist.Label="After (date)"
+                            SelectedDate="{Binding AfterDate}"
+                            ToolTip.Tip="Only delete messages sent after this date">
+                            <DatePicker.Styles>
+                                <Style Selector="DatePicker">
+                                    <Style Selector="^ /template/ TextBox#DisplayTextBox">
+                                        <Setter Property="Theme" Value="{DynamicResource FilledTextBox}" />
+                                    </Style>
+                                </Style>
+                            </DatePicker.Styles>
+                        </DatePicker>
+                        <DatePicker
+                            Grid.Row="0"
+                            Grid.Column="1"
+                            Margin="8,8,16,8"
+                            materialAssists:TextFieldAssist.Label="Before (date)"
+                            SelectedDate="{Binding BeforeDate}"
+                            ToolTip.Tip="Only delete messages sent before this date">
+                            <DatePicker.Styles>
+                                <Style Selector="DatePicker">
+                                    <Style Selector="^ /template/ TextBox#DisplayTextBox">
+                                        <Setter Property="Theme" Value="{DynamicResource FilledTextBox}" />
+                                    </Style>
+                                </Style>
+                            </DatePicker.Styles>
+                        </DatePicker>
+
+                        <!--  Time limits  -->
+                        <TimePicker
+                            Grid.Row="1"
+                            Grid.Column="0"
+                            Margin="16,8,8,8"
+                            materialAssists:TextFieldAssist.Label="After (time)"
+                            ClockIdentifier="{x:Static utils:Internationalization.AvaloniaClockIdentifier}"
+                            IsEnabled="{Binding IsAfterDateSet}"
+                            SelectedTime="{Binding AfterTime}"
+                            ToolTip.Tip="Only delete messages sent after this time">
+                            <TimePicker.Styles>
+                                <Style Selector="TimePicker">
+                                    <Style Selector="^ /template/ TextBox#PART_DisplayTextBox">
+                                        <Setter Property="Theme" Value="{DynamicResource FilledTextBox}" />
+                                    </Style>
+                                </Style>
+                            </TimePicker.Styles>
+                        </TimePicker>
+                        <TimePicker
+                            Grid.Row="1"
+                            Grid.Column="1"
+                            Margin="8,8,16,8"
+                            materialAssists:TextFieldAssist.Label="Before (time)"
+                            ClockIdentifier="{x:Static utils:Internationalization.AvaloniaClockIdentifier}"
+                            IsEnabled="{Binding IsBeforeDateSet}"
+                            SelectedTime="{Binding BeforeTime}"
+                            ToolTip.Tip="Only delete messages sent before this time">
+                            <TimePicker.Styles>
+                                <Style Selector="TimePicker">
+                                    <Style Selector="^ /template/ TextBox#PART_DisplayTextBox">
+                                        <Setter Property="Theme" Value="{DynamicResource FilledTextBox}" />
+                                    </Style>
+                                </Style>
+                            </TimePicker.Styles>
+                        </TimePicker>
+                    </Grid>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!--  Buttons  -->
+        <Grid
+            Grid.Row="2"
+            Margin="16"
+            ColumnDefinitions="*,Auto,Auto">
+            <Button
+                Grid.Column="1"
+                Command="{Binding ConfirmCommand}"
+                Content="DELETE"
+                IsDefault="True"
+                Theme="{DynamicResource MaterialOutlineButton}" />
+            <Button
+                Grid.Column="2"
+                Margin="16,0,0,0"
+                Command="{Binding CancelCommand}"
+                Content="CANCEL"
+                IsCancel="True"
+                Theme="{DynamicResource MaterialOutlineButton}" />
+        </Grid>
+    </Grid>
+</UserControl>
