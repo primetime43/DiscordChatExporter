@@ -1,35 +1,35 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using CliFx.Attributes;
+using CliFx.Binding;
 using CliFx.Infrastructure;
 using DiscordChatExporter.Cli.Commands.Base;
 using DiscordChatExporter.Core.Discord;
-using DiscordChatExporter.Core.Utils.Extensions;
+using PowerKit.Extensions;
 
 namespace DiscordChatExporter.Cli.Commands;
 
 [Command("deletemessages", Description = "Deletes messages from a channel.")]
-public class DeleteMessagesCommand : DiscordCommandBase
+public partial class DeleteMessagesCommand : DiscordCommandBase
 {
     [CommandOption(
         "channel",
         'c',
         Description = "Channel ID. Note: You can only delete your own messages in DMs."
     )]
-    public required Snowflake ChannelId { get; init; }
+    public required Snowflake ChannelId { get; set; }
 
     [CommandOption(
         "before",
         Description = "Limit to messages sent before this date (formatted using the current culture)."
     )]
-    public DateTimeOffset? Before { get; init; }
+    public DateTimeOffset? Before { get; set; }
 
     [CommandOption(
         "after",
         Description = "Limit to messages sent after this date (formatted using the current culture)."
     )]
-    public DateTimeOffset? After { get; init; }
+    public DateTimeOffset? After { get; set; }
 
     public override async ValueTask ExecuteAsync(IConsole console)
     {
